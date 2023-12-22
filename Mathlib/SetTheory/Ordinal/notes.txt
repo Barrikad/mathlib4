@@ -1,0 +1,16 @@
+P x y ... ==> P (f x) (g y) ...
+(forall (x,y,...) in S (where S is totally ordered), P x y ...) ==> P (Sup (image fst S)) (Sup (image snd S)) ...
+
+lfp (lambda x. (f (fst x), g (snd x))) = (lfp f, lfp g)
+
+lfp f /\ lfp g /= lfp (f /\ g)
+
+P (lfp f) (lfp g) ...
+
+P ==> P'
+
+P
+P'
+x := 0; 
+var x;
+Q
