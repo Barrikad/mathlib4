@@ -125,35 +125,9 @@ def iter_lim {α : Type u} [CompleteLattice α] (lim : Set α -> α) (f : α -> 
   conv => lhs; unfold iter.iter_helper
   simp [h1,h2,h3]
 
-def ordinal_induction (P : Ordinal -> Prop) (o : Ordinal):
-    P 0 -> (∀ o, P o -> P (o + 1)) -> (∀ o, Ordinal.IsLimit o -> (∀ o' < o, P o') -> P o) -> P o := by apply?
-
---     intro h0
---     intro hsucc
---     intro hlim
---     cases Ordinal.zero_or_succ_or_limit o
---     . simp_all only [Ordinal.add_one_eq_succ, lt_self_iff_false]
---     . rename_i h
---       cases h
---       . rename_i h
---         apply Exists.elim h
---         intro o'
---         intro h
---         have : o' < o := by
---           simp_all only [Ordinal.add_one_eq_succ, lt_self_iff_false, Order.succ_eq_succ_iff, exists_eq',
---             Order.lt_succ_iff_not_isMax, gt_iff_lt, not_isMax, not_false_eq_true]
---         have := ordinal_induction P o'
---         have hyp := hsucc o' (this h0 hsucc hlim)
---         simp_all only [Ordinal.add_one_eq_succ, lt_self_iff_false, Order.succ_eq_succ_iff, exists_eq',
---           Order.lt_succ_iff_not_isMax, gt_iff_lt, not_isMax, not_false_eq_true]
---       . rename_i islim
---         have : ∀ o' < o, P o' := by
---           intro o'
---           intro _
---           exact (ordinal_induction P o' h0 hsucc hlim)
---         exact hlim o islim this
--- termination_by ordinal_induction P o _ _ _ => o
-
+-- def ordinal_induction (P : Ordinal -> Prop) (o : Ordinal):
+--     P 0 -> (∀ o, P o -> P (o + 1)) -> (∀ o, Ordinal.IsLimit o -> (∀ o' < o, P o') -> P o) -> P o := by
+--     exact fun a a_1 a_2 ↦ Ordinal.limitRecOn o a a_1 a_2
 
 def iter_prefixes {α : Type u} [CompleteLattice α] (f : α -> α) (s : α) (o : Ordinal) (x : α) :
     Monotone f -> s ≤ x -> f x ≤ x -> iter sSup f s o ≤ x := by
@@ -213,6 +187,8 @@ def iter_prefixes {α : Type u} [CompleteLattice α] (f : α -> α) (s : α) (o 
 def iter_monotone_chain {α : Type u} [CompleteLattice α] (f : α -> α) (s : α) (o1 : Ordinal) (o2 : Ordinal) :
     Monotone f -> s ≤ f s -> o1 ≤ o2 -> iter sSup f s o1 ≤ iter sSup f s o2 := by sorry
 
+
+
 noncomputable
 def bigord {α : Type u} [CompleteLattice α] : Ordinal := Cardinal.ord (Cardinal.mk (Set α))
 
@@ -234,13 +210,3 @@ def iter_lfp_fixed {α : Type u} [CompleteLattice α] (f : α -> α) (h : Monoto
 
 def iter_lfp_least {α : Type u} [CompleteLattice α] (f : α -> α) (h : Monotone f) (x : α) :
   f x = x -> iter_lfp f h ≤ x := by sorry
-
-def conjunctive_monotone {α : Type u} [CompleteLattice α] (f : α -> α) (h : Monotone f) (g : α -> α) (hg : Monotone g) :
-  Monotone (Inf.inf f g) := by sorry
-
-def iter_conjunctive2 {α : Type u} [CompleteLattice α] (f : α -> α) (hf : Monotone f) (g : α -> α) (hg : Monotone g) :
-  (∀ x y z, Inf.inf x y ≤ z -> Inf.inf (f x) (g y) ≤ (Inf.inf f g) z) ->
-  (∀ o, Ordinal.IsLimit o ->
-    (∀ o' < o, Inf.inf (iter sSup f Bot.bot o') (iter sSup g Bot.bot o') ≤ (iter sSup (Inf.inf f g) Bot.bot o')) ->
-    Inf.inf (iter sSup f Bot.bot o) (iter sSup g Bot.bot o) ≤ (iter sSup (Inf.inf f g) Bot.bot o)) ->
-  Inf.inf (iter_lfp f hf) (iter_lfp g hg) ≤ iter_lfp (Inf.inf f g) (conjunctive_monotone f hf g hg) := by sorry
