@@ -4,15 +4,18 @@ import Mathlib.SetTheory.Cardinal.Ordinal
 import Mathlib.Order.OrdinalApproximantsFixedPoints
 
 open OrdinalApprox
---TODO: better syntax
+
+abbrev State := String → Int
+abbrev Expr α := State → α
+
 inductive Prog where
   | havoc : String → Prog
-  | assign : String → ((String → Int) → Int) → Prog
+  | assign : String → (Expr Int) → Prog
   | seq : Prog → Prog → Prog
-  | ifte : ((String → Int) → Bool) → Prog → Prog → Prog
-  | loop : ((String → Int) → Bool) → Prog → Prog
+  | ifte : (Expr Bool) → Prog → Prog → Prog
+  | while : (Expr Bool) → Prog → Prog
 
-def wp (c : Prog) : ((String → Int) → Prop) →o ((String → Int) → Prop) :=
+def wp (c : Prog) : (State → Prop) →o (State → Prop) :=
   match c with
   | .havoc x =>
     let f q s := ∀ v, q (Function.update s x v)
@@ -61,8 +64,8 @@ def wp (c : Prog) : ((String → Int) → Prop) →o ((String → Int) → Prop)
         on_goal 2 => exact this
         assumption
     OrderHom.mk f h
-  | .loop b c =>
-    let g (q : (String → Int) → Prop) x s :=  (b s → wp c x s) ∧ (¬ b s → q s)
+  | .while b c =>
+    let g (q : State → Prop) x s :=  (b s → wp c x s) ∧ (¬ b s → q s)
     let hg q : Monotone (g q) := by
       intro x1 x2 h s h'
       apply And.intro
@@ -81,32 +84,32 @@ def wp (c : Prog) : ((String → Int) → Prop) →o ((String → Int) → Prop)
         . intro hb
           have hq := (And.right h') hb
           exact ((h s) hq)
-      apply OrderHom.monotone' (OrderHom.lfp : (((String → Int) → Prop) →o ((String → Int) → Prop)) →o (String → Int) → Prop)
+      apply OrderHom.monotone' (OrderHom.lfp : ((State → Prop) →o (State → Prop)) →o State → Prop)
       assumption
     OrderHom.mk f h
 
-def phi (b : (String → Int) → Bool) c (q : (String → Int) → Prop) x s := (b s → wp c x s) ∧ (¬ b s → q s)
+def φ (b : Expr Bool) (c : Prog) (q x : State → Prop) (s : State) :=
+  (b s → wp c x s) ∧ (¬ b s → q s)
 
-lemma phi_mono (b : (String → Int) → Bool) (c : Prog) (q : (String → Int) → Prop) : Monotone (phi b c q) := by
+lemma φ_mono (b : Expr Bool) (c : Prog) (q : State → Prop) : Monotone (φ b c q) := by
   intro x1 x2 h s h'
+  have := OrderHom.monotone' (wp c)
+  cases h'
   apply And.intro
-  . intro hb
-    exact OrderHom.monotone' (wp c) h s (And.left h' hb)
-  . intro hb
-    exact And.right h' hb
+  all_goals aesop
 
-lemma phi_conjunctive_step b (c : Prog) q₁ q₂ x y z
+lemma φ_conjunctive_step b (c : Prog) q₁ q₂ x y z
     (hyp : ∀ q₁ q₂, wp c q₁ ⊓ wp c q₂ ≤ wp c (q₁ ⊓ q₂))
     (h : x ⊓ y ≤ z)
-    : phi b c q₁ x ⊓ phi b c q₂ y ≤ phi b c (q₁ ⊓ q₂) z := by
+    : φ b c q₁ x ⊓ φ b c q₂ y ≤ φ b c (q₁ ⊓ q₂) z := by
   intro s h'
-  apply And.intro
-  . intro hb
-    exact
-      OrderHom.monotone' (wp c) h s
-        ((hyp x y s) (And.intro (And.left (And.left h') hb) (And.left (And.right h') hb)))
-  . intro hb
-    exact And.intro (And.right (And.left h') hb) (And.right (And.right h') hb)
+  cases h'; rename_i l r; cases l; cases r
+  constructor <;> intro _
+  on_goal 1 =>
+    apply OrderHom.monotone' (wp c) h s
+    apply hyp x y s
+  all_goals constructor <;> simp_all only [ge_iff_le, IsEmpty.forall_iff, not_false_eq_true,
+    forall_true_left, Bool.not_eq_true]
 
 lemma lfp_approx_zero {α : Type} [CompleteLattice α] (f : α →o α) : lfp_approx f 0 = Bot.bot:= by
   unfold lfp_approx
@@ -141,24 +144,24 @@ theorem wp_conjunctive (c : Prog) q₁ q₂ : wp c q₁ ⊓ wp c q₂ ≤ wp c (
       exact wp_conjunctive c₁ q₁ q₂ s (And.intro (And.left (And.left h) hb) (And.left (And.right h) hb))
     . intro hb
       exact wp_conjunctive c₂ q₁ q₂ s (And.intro (And.right (And.left h) hb) (And.right (And.right h) hb))
-  | .loop b c => by
-    let ohmk := fun q' => OrderHom.mk (phi b c q') (phi_mono b c q')
-    let phihm := fun q' => lfp_approx (ohmk q')
-    have : ∀ a : Ordinal, phihm q₁ a ⊓ phihm q₂ a ≤ phihm (q₁ ⊓ q₂) a := by
+  | .while b c => by
+    let ohmk q' := OrderHom.mk (φ b c q') (φ_mono b c q')
+    let φhm q' := lfp_approx (ohmk q')
+    have : ∀ a : Ordinal, φhm q₁ a ⊓ φhm q₂ a ≤ φhm (q₁ ⊓ q₂) a := by
       intro a
       induction a using Ordinal.induction with
       | h i IH =>
         have ihj := fun j (h : j < i) =>
-          phi_conjunctive_step b c q₁ q₂
-            (phihm q₁ j) (phihm q₂ j) (phihm (q₁ ⊓ q₂) j)
+          φ_conjunctive_step b c q₁ q₂
+            (φhm q₁ j) (φhm q₂ j) (φhm (q₁ ⊓ q₂) j)
             (fun q₁' q₂' => wp_conjunctive c q₁' q₂') (IH j h)
         intro s h
-        dsimp [phihm] at h
+        dsimp [φhm] at h
         unfold lfp_approx at h
         apply Exists.elim
           (Iff.mp
             (unary_relation_sSup_iff
-              { (ohmk q₁) (phihm q₁ j) | (j : Ordinal) (_ : j < i) } (a := s))
+              { (ohmk q₁) (φhm q₁ j) | (j : Ordinal) (_ : j < i) } (a := s))
             (And.left h))
         simp only [OrderHom.coe_mk, exists_prop, Set.mem_setOf_eq, ge_iff_le, and_imp,
           forall_exists_index, forall_apply_eq_imp_iff₂]
@@ -166,7 +169,7 @@ theorem wp_conjunctive (c : Prog) q₁ q₂ : wp c q₁ ⊓ wp c q₂ ≤ wp c (
         apply Exists.elim
           (Iff.mp
             (unary_relation_sSup_iff
-              { (ohmk q₂) (phihm q₂ j) | (j : Ordinal) (_ : j < i) } (a := s))
+              { (ohmk q₂) (φhm q₂ j) | (j : Ordinal) (_ : j < i) } (a := s))
             (And.right h))
         simp only [OrderHom.coe_mk, exists_prop, Set.mem_setOf_eq, ge_iff_le, and_imp,
           forall_exists_index, forall_apply_eq_imp_iff₂]
@@ -177,9 +180,9 @@ theorem wp_conjunctive (c : Prog) q₁ q₂ : wp c q₁ ⊓ wp c q₂ ≤ wp c (
         unfold lfp_approx
         apply Iff.mpr
           (unary_relation_sSup_iff
-            { (ohmk (q₁ ⊓ q₂)) (phihm (q₁ ⊓ q₂) j) | (j : Ordinal) (_ : j < i) }
+            { (ohmk (q₁ ⊓ q₂)) (φhm (q₁ ⊓ q₂) j) | (j : Ordinal) (_ : j < i) }
             (a := s))
-        apply Exists.intro (phi b c (q₁ ⊓ q₂) (phihm (q₁ ⊓ q₂) (max j k)))
+        apply Exists.intro (φ b c (q₁ ⊓ q₂) (φhm (q₁ ⊓ q₂) (max j k)))
         apply And.intro
         . simp only [ge_iff_le, OrderHom.coe_mk, exists_prop, Set.mem_setOf_eq]
           apply Exists.intro (max j k)
@@ -191,7 +194,7 @@ theorem wp_conjunctive (c : Prog) q₁ q₂ : wp c q₁ ⊓ wp c q₂ ≤ wp c (
               (lfp_approx_monotone (ohmk q₁) (le_max_left j k)) s hjs
           . exact OrderHom.monotone (ohmk q₂)
               (lfp_approx_monotone (ohmk q₂) (le_max_right j k)) s hks
-    have hbigord := this (Cardinal.ord $ Order.succ (Cardinal.mk ((String → Int) → Prop)))
+    have hbigord := this (Cardinal.ord $ Order.succ (Cardinal.mk (State → Prop)))
     intro s h
     apply Eq.mp (congrFun (lfp_is_lfp_approx_cardinal (ohmk (q₁ ⊓ q₂))) s)
     apply hbigord

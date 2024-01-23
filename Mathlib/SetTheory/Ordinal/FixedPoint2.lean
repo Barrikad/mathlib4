@@ -9,7 +9,7 @@ universe u
 
 @[aesop unsafe 50%]
 def card_greater_noninjective (α β : Type u) (f : α -> β) :
-    Cardinal.mk α > Cardinal.mk β -> ¬Function.Injective f := by
+    Cardinal.mk α > Cardinal.mk β -> ¬Function.Injective f := by 
   intro
   have hneq : ¬ Cardinal.mk α <= Cardinal.mk β := by simp_all only [not_le]
   have : ¬Nonempty (α ↪ β) := by
@@ -187,8 +187,6 @@ def iter_prefixes {α : Type u} [CompleteLattice α] (f : α -> α) (s : α) (o 
 def iter_monotone_chain {α : Type u} [CompleteLattice α] (f : α -> α) (s : α) (o1 : Ordinal) (o2 : Ordinal) :
     Monotone f -> s ≤ f s -> o1 ≤ o2 -> iter sSup f s o1 ≤ iter sSup f s o2 := by sorry
 
-
-
 noncomputable
 def bigord {α : Type u} [CompleteLattice α] : Ordinal := Cardinal.ord (Cardinal.mk (Set α))
 
@@ -198,7 +196,6 @@ def iter_reach_fixpoint {α : Type u} [CompleteLattice α] (f : α -> α) (h : M
   apply Classical.byContradiction
   intro hbigord
   have : ∀ o ≤ bigord (α := α), ∀ o' < o, iter sSup f s o' < iter sSup f s o := by sorry
-
   sorry
 
 noncomputable
