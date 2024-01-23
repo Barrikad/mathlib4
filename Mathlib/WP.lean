@@ -34,8 +34,8 @@ def wp (c : Prog) : (State → Prop) →o (State → Prop) :=
   | .seq c1 c2 =>
     let f q := wp c1 (wp c2 q)
     let h : Monotone f := by
-      have h1 := OrderHom.monotone' (wp c2)
-      have h2 := OrderHom.monotone' (wp c1)
+      have h1 := (wp c2).monotone
+      have h2 := (wp c1).monotone
       intro q₁ q₂ h v h'
       apply h2
       on_goal 2 => exact h'
@@ -45,8 +45,8 @@ def wp (c : Prog) : (State → Prop) →o (State → Prop) :=
   | .ifte b c1 c2 =>
     let f q s := (b s → wp c1 q s) ∧ (¬ b s → wp c2 q s)
     let h : Monotone f := by
-      have h1 := OrderHom.monotone' (wp c1)
-      have h2 := OrderHom.monotone' (wp c2)
+      have h1 := (wp c1).monotone
+      have h2 := (wp c2).monotone
       intro s₁ s₂ h
       intro v
       intro h'
@@ -70,7 +70,7 @@ def wp (c : Prog) : (State → Prop) →o (State → Prop) :=
       intro x1 x2 h s h'
       apply And.intro
       . intro hb
-        exact OrderHom.monotone' (wp c) h s (And.left h' hb)
+        exact (wp c).monotone h s (And.left h' hb)
       . intro hb
         exact And.right h' hb
     let f q := OrderHom.lfp (OrderHom.mk (g q) (hg q))
@@ -84,7 +84,7 @@ def wp (c : Prog) : (State → Prop) →o (State → Prop) :=
         . intro hb
           have hq := (And.right h') hb
           exact ((h s) hq)
-      apply OrderHom.monotone' (OrderHom.lfp : ((State → Prop) →o (State → Prop)) →o State → Prop)
+      apply (OrderHom.lfp : ((State → Prop) →o (State → Prop)) →o State → Prop).monotone
       assumption
     OrderHom.mk f h
 
@@ -93,7 +93,7 @@ def φ (b : Expr Bool) (c : Prog) (q x : State → Prop) (s : State) :=
 
 lemma φ_mono (b : Expr Bool) (c : Prog) (q : State → Prop) : Monotone (φ b c q) := by
   intro x1 x2 h s h'
-  have := OrderHom.monotone' (wp c)
+  have := (wp c).monotone
   cases h'
   apply And.intro
   all_goals aesop
@@ -106,10 +106,10 @@ lemma φ_conjunctive_step b (c : Prog) q₁ q₂ x y z
   cases h'; rename_i l r; cases l; cases r
   constructor <;> intro _
   on_goal 1 =>
-    apply OrderHom.monotone' (wp c) h s
+    apply (wp c).monotone h s
     apply hyp x y s
-  all_goals constructor <;> simp_all only [ge_iff_le, IsEmpty.forall_iff, not_false_eq_true,
-    forall_true_left, Bool.not_eq_true]
+  all_goals constructor <;> simp_all only [ge_iff_le, IsEmpty.forall_iff,
+    not_false_eq_true, forall_true_left, Bool.not_eq_true]
 
 lemma lfp_approx_zero {α : Type} [CompleteLattice α] (f : α →o α) : lfp_approx f 0 = Bot.bot:= by
   unfold lfp_approx
@@ -135,7 +135,7 @@ theorem wp_conjunctive (c : Prog) q₁ q₂ : wp c q₁ ⊓ wp c q₂ ≤ wp c (
     assumption
   | .seq c₁ c₂ => by
     have h1 := wp_conjunctive c₁ (wp c₂ q₁) (wp c₂ q₂)
-    have h2 := OrderHom.monotone' (wp c₁) (wp_conjunctive c₂ q₁ q₂)
+    have h2 := (wp c₁).monotone (wp_conjunctive c₂ q₁ q₂)
     exact ge_trans h2 h1
   | .ifte b c₁ c₂ => by
     intro s h
@@ -190,9 +190,9 @@ theorem wp_conjunctive (c : Prog) q₁ q₂ : wp c q₁ ⊓ wp c q₂ ≤ wp c (
           rfl
         . apply ihj (max j k) jk_le_i s
           apply And.intro
-          . exact OrderHom.monotone (ohmk q₁)
+          . exact (ohmk q₁).monotone
               (lfp_approx_monotone (ohmk q₁) (le_max_left j k)) s hjs
-          . exact OrderHom.monotone (ohmk q₂)
+          . exact (ohmk q₂).monotone
               (lfp_approx_monotone (ohmk q₂) (le_max_right j k)) s hks
     have hbigord := this (Cardinal.ord $ Order.succ (Cardinal.mk (State → Prop)))
     intro s h
