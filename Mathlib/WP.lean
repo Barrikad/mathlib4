@@ -10,10 +10,10 @@ abbrev Expr α := State → α
 
 inductive Prog where
   | havoc : String → Prog
-  | assign : String → (Expr Int) → Prog
+  | assign : String → Expr Int → Prog
   | seq : Prog → Prog → Prog
-  | ifte : (Expr Bool) → Prog → Prog → Prog
-  | while : (Expr Bool) → Prog → Prog
+  | ifte : Expr Bool → Prog → Prog → Prog
+  | while : Expr Bool → Prog → Prog
 
 def wp (c : Prog) : (State → Prop) →o (State → Prop) :=
   match c with
@@ -103,13 +103,15 @@ lemma φ_conjunctive_step b (c : Prog) q₁ q₂ x y z
     (h : x ⊓ y ≤ z)
     : φ b c q₁ x ⊓ φ b c q₂ y ≤ φ b c (q₁ ⊓ q₂) z := by
   intro s h'
-  cases h'; rename_i l r; cases l; cases r
-  constructor <;> intro _
-  on_goal 1 =>
-    apply (wp c).monotone h s
-    apply hyp x y s
-  all_goals constructor <;> simp_all only [ge_iff_le, IsEmpty.forall_iff,
-    not_false_eq_true, forall_true_left, Bool.not_eq_true]
+  cases h' with
+  | intro l r =>
+    cases l; cases r
+    constructor <;> intro _
+    on_goal 1 =>
+      apply (wp c).monotone h s
+      apply hyp x y s
+    all_goals constructor <;> simp_all only [ge_iff_le, IsEmpty.forall_iff,
+      not_false_eq_true, forall_true_left, Bool.not_eq_true]
 
 lemma lfp_approx_zero {α : Type} [CompleteLattice α] (f : α →o α) : lfp_approx f 0 = Bot.bot:= by
   unfold lfp_approx
